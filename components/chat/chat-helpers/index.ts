@@ -208,15 +208,22 @@ export const handleHostedChat = async (
 
   let draftMessages = await buildFinalMessages(payload, profile, chatImages)
 
-  let formattedMessages : any[] = []
+  let formattedMessages: any[] = []
   if (provider === "google") {
-    formattedMessages = await adaptMessagesForGoogleGemini(payload, draftMessages)
+    formattedMessages = await adaptMessagesForGoogleGemini(
+      payload,
+      draftMessages
+    )
   } else {
     formattedMessages = draftMessages
   }
 
   const apiEndpoint =
-    provider === "custom" ? "/api/chat/custom" : `/api/chat/${provider}`
+    provider === "custom"
+      ? /deepseek|qwen3/i.test(modelData.modelName)
+        ? "/api/chat/deepseek"
+        : "/api/chat/custom"
+      : `/api/chat/${provider}`
 
   const requestBody = {
     chatSettings: payload.chatSettings,
@@ -233,17 +240,31 @@ export const handleHostedChat = async (
     setChatMessages
   )
 
-  return await processResponse(
-    response,
-    isRegeneration
-      ? payload.chatMessages[payload.chatMessages.length - 1]
-      : tempAssistantChatMessage,
-    true,
-    newAbortController,
-    setFirstTokenReceived,
-    setChatMessages,
-    setToolInUse
-  )
+  if (apiEndpoint != "/api/chat/deepseek") {
+    return await processResponse(
+      response,
+      isRegeneration
+        ? payload.chatMessages[payload.chatMessages.length - 1]
+        : tempAssistantChatMessage,
+      true,
+      newAbortController,
+      setFirstTokenReceived,
+      setChatMessages,
+      setToolInUse
+    )
+  } else {
+    return await processDeepSeekResponse(
+      response,
+      isRegeneration
+        ? payload.chatMessages[payload.chatMessages.length - 1]
+        : tempAssistantChatMessage,
+      true,
+      newAbortController,
+      setFirstTokenReceived,
+      setChatMessages,
+      setToolInUse
+    )
+  }
 }
 
 export const fetchChatResponse = async (
@@ -339,6 +360,96 @@ export const processResponse = async (
 
     return fullText
   } else {
+    throw new Error("Response body is null")
+  }
+}
+
+export const processDeepSeekResponse = async (
+  response: Response,
+  lastChatMessage: ChatMessage,
+  isHosted: boolean,
+  controller: AbortController,
+  setFirstTokenReceived: React.Dispatch<React.SetStateAction<boolean>>,
+  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+  setToolInUse: React.Dispatch<React.SetStateAction<string>>
+) => {
+  let fullText = ""
+  let reasoningText = "" // 存储完整的 reasoning_content
+  let contentText = "" // 存储 content
+  let reasoningEnded = false // 标记 reasoning_content 是否已经变为 null
+
+  // console.log("Starting to process DeepSeek response...");
+
+  if (response.body) {
+    await consumeReadableStream(
+      response.body,
+      chunk => {
+        setFirstTokenReceived(true)
+        setToolInUse("none")
+
+        // console.log("Received chunk:", chunk);
+
+        let lines = chunk.trimEnd().split("\n")
+
+        for (let line of lines) {
+          line = line.trim()
+          if (!line) continue // 跳过空行
+
+          try {
+            const parsedLine = JSON.parse(line)
+            // console.log("Parsed JSON:", parsedLine);
+
+            if ("reasoning_content" in parsedLine) {
+              const reasoningContent = parsedLine.reasoning_content
+              if (!reasoningEnded) {
+                if (reasoningContent !== "content is null") {
+                  reasoningText += reasoningContent
+                  // console.log("Accumulating reasoning_content:", reasoningText);
+                } else {
+                  reasoningEnded = true // 一旦遇到 null，停止累积 reasoning_content
+                  // console.log("Reasoning content ended.");
+                }
+              }
+            }
+
+            if ("content" in parsedLine) {
+              contentText += parsedLine.content
+              // console.log("Accumulating content:", contentText);
+            }
+          } catch (error) {
+            console.warn("Skipping invalid JSON line:", line)
+          }
+        }
+
+        // 组合最终输出格式
+        fullText =
+          (reasoningText ? `<think>\n${reasoningText}\n</think>\n\n` : "") +
+          contentText
+
+        // console.log("Updated fullText:", fullText);
+
+        setChatMessages(prev =>
+          prev.map(chatMessage => {
+            if (chatMessage.message.id === lastChatMessage.message.id) {
+              return {
+                ...chatMessage,
+                message: {
+                  ...chatMessage.message,
+                  content: fullText
+                }
+              }
+            }
+            return chatMessage
+          })
+        )
+      },
+      controller.signal
+    )
+
+    // console.log("Final fullText:", fullText);
+    return fullText
+  } else {
+    console.error("Response body is null")
     throw new Error("Response body is null")
   }
 }

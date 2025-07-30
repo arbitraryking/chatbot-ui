@@ -6,6 +6,8 @@ const withPWA = require("next-pwa")({
   dest: "public"
 })
 
+const { codeInspectorPlugin } = require("code-inspector-plugin");
+
 module.exports = withBundleAnalyzer(
   withPWA({
     reactStrictMode: true,
@@ -27,6 +29,12 @@ module.exports = withBundleAnalyzer(
     },
     experimental: {
       serverComponentsExternalPackages: ["sharp", "onnxruntime-node"]
+    },
+    webpack: (config, { dev, isServer }) => {
+      if(dev){
+        config.plugins.push(codeInspectorPlugin({ bundler: "webpack" }));
+      }        
+      return config;
     }
   })
 )
