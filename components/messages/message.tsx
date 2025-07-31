@@ -305,7 +305,10 @@ export const Message: FC<MessageProps> = ({
               maxRows={20}
             />
           ) : (
-            <MessageMarkdown content={message.content} />
+            <MessageMarkdown
+              content={message.content}
+              isThinking={message.is_thinking ?? true}
+            />
           )}
         </div>
 

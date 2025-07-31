@@ -100,7 +100,8 @@ export const createTempMessages = (
       role: "user",
       sequence_number: chatMessages.length,
       updated_at: "",
-      user_id: ""
+      user_id: "",
+      is_thinking: true
     },
     fileItems: []
   }
@@ -117,7 +118,8 @@ export const createTempMessages = (
       role: "assistant",
       sequence_number: chatMessages.length + 1,
       updated_at: "",
-      user_id: ""
+      user_id: "",
+      is_thinking: true
     },
     fileItems: []
   }
@@ -397,19 +399,19 @@ export const processDeepSeekResponse = async (
 
           try {
             const parsedLine = JSON.parse(line)
+            if (parsedLine.content === "") {
+              continue
+            }
+
             // console.log("Parsed JSON:", parsedLine);
 
             if ("reasoning_content" in parsedLine) {
               const reasoningContent = parsedLine.reasoning_content
-              if (!reasoningEnded) {
-                if (reasoningContent !== "content is null") {
-                  reasoningText += reasoningContent
-                  // console.log("Accumulating reasoning_content:", reasoningText);
-                } else {
-                  reasoningEnded = true // 一旦遇到 null，停止累积 reasoning_content
-                  // console.log("Reasoning content ended.");
-                }
-              }
+              reasoningText += reasoningContent
+              // console.log("Accumulating reasoning_content:", reasoningText);
+            } else {
+              reasoningEnded = true // 一旦遇到 null，停止累积 reasoning_content
+              // console.log("Reasoning content ended.");
             }
 
             if ("content" in parsedLine) {
@@ -435,7 +437,8 @@ export const processDeepSeekResponse = async (
                 ...chatMessage,
                 message: {
                   ...chatMessage.message,
-                  content: fullText
+                  content: fullText,
+                  is_thinking: !reasoningEnded
                 }
               }
             }
