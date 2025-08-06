@@ -24,17 +24,19 @@ export async function POST(request: Request) {
       organization: profile.openai_organization_id
     })
 
-    const response = await openai.chat.completions.create({
-      model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
-      messages: messages as ChatCompletionCreateParamsBase["messages"],
-      temperature: chatSettings.temperature,
-      max_tokens:
-        chatSettings.model === "gpt-4-vision-preview" ||
-        chatSettings.model === "gpt-4o"
-          ? 4096
-          : null, // TODO: Fix
-      stream: true
-    })
+    const response = await openai.chat.completions
+      .create({
+        model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
+        messages: messages as ChatCompletionCreateParamsBase["messages"],
+        temperature: chatSettings.temperature,
+        max_tokens:
+          chatSettings.model === "gpt-4-vision-preview" ||
+          chatSettings.model === "gpt-4o"
+            ? 4096
+            : null, // TODO: Fix
+        stream: true
+      })
+      .asResponse()
 
     const stream = OpenAIStream(response)
 

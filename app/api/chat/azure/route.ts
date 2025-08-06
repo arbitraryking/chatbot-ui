@@ -51,13 +51,15 @@ export async function POST(request: Request) {
       defaultHeaders: { "api-key": KEY }
     })
 
-    const response = await azureOpenai.chat.completions.create({
-      model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
-      messages: messages as ChatCompletionCreateParamsBase["messages"],
-      temperature: chatSettings.temperature,
-      max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix
-      stream: true
-    })
+    const response = await azureOpenai.chat.completions
+      .create({
+        model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
+        messages: messages as ChatCompletionCreateParamsBase["messages"],
+        temperature: chatSettings.temperature,
+        max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix
+        stream: true
+      })
+      .asResponse()
 
     const stream = OpenAIStream(response)
 

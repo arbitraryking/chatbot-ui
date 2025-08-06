@@ -33,7 +33,7 @@ module.exports = withBundleAnalyzer(
     webpack: (config, { dev, isServer }) => {
       if(dev){
         config.plugins.push(codeInspectorPlugin({ bundler: "webpack" }));
-      }        
+      }
       return config;
     }
   })

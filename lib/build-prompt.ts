@@ -112,6 +112,7 @@ export async function buildFinalMessages(
     created_at: "",
     id: processedChatMessages.length + "",
     image_paths: [],
+    is_thinking: true,
     model: payload.chatSettings.model,
     role: "system",
     sequence_number: processedChatMessages.length,
